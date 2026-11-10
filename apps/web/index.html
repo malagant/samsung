@@ -6,10 +6,11 @@
     <meta name="color-scheme" content="light dark" />
     <title>Wärmepumpe</title>
     <script>
-      // Apply the saved theme before first paint to avoid a flash.
+      // Pick the right background before the theme plugin loads, to avoid a white flash in dark mode.
       try {
-        const t = localStorage.getItem("theme");
-        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+        const s = localStorage.getItem("theme.scheme");
+        const dark = s === "dark" || (s !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.style.background = dark ? "#111" : "#fafafa";
       } catch {}
     </script>
   </head>

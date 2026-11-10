@@ -1,101 +1,112 @@
+import type { ShellProps } from "@samsung/theme-kit";
 import type { QueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 import { createRootRouteWithContext, createRoute, Link, Outlet } from "@tanstack/react-router";
-import { useState } from "react";
+import type { ReactNode } from "react";
 import { api } from "./api.js";
-import { getTheme, setTheme, type Theme } from "./theme.js";
+import { AppearanceSettings, QuickControls } from "./components/Appearance.js";
+import { Overview } from "./components/Overview.js";
+import { useT, useTheme } from "./theme/ThemeProvider.js";
 
 const NAV = [
-  { to: "/", label: "Übersicht" },
-  { to: "/analytics", label: "Verlauf" },
-  { to: "/efficiency", label: "Effizienz" },
-  { to: "/controls", label: "Steuerung" },
-  { to: "/settings", label: "Einstellungen" },
+  { to: "/", key: "nav.overview" },
+  { to: "/analytics", key: "nav.analytics" },
+  { to: "/efficiency", key: "nav.efficiency" },
+  { to: "/controls", key: "nav.controls" },
+  { to: "/settings", key: "nav.settings" },
 ] as const;
 
-function ThemeToggle() {
-  const [theme, set] = useState<Theme>(getTheme);
-  const next: Record<Theme, Theme> = { system: "light", light: "dark", dark: "system" };
-  return (
-    <button
-      type="button"
-      className="rounded-md border border-border px-3 py-1.5 text-sm text-muted"
-      onClick={() => {
-        const t = next[theme];
-        setTheme(t);
-        set(t);
-      }}
-    >
-      Theme: {theme}
-    </button>
-  );
-}
+const ShellLink: ShellProps["Link"] = ({ to, className, children }) => (
+  <Link to={to} className={className} activeOptions={{ exact: to === "/" }}>
+    {children}
+  </Link>
+);
 
-const rootRoute = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  component: () => (
-    <div className="min-h-dvh md:grid md:grid-cols-[220px_1fr]">
-      <aside className="border-b border-border bg-surface p-4 md:border-r md:border-b-0">
-        <div className="mb-6 font-semibold">Wärmepumpe</div>
-        <nav className="flex gap-2 overflow-x-auto md:flex-col">
-          {NAV.map((n) => (
-            <Link
-              key={n.to}
-              to={n.to}
-              className="rounded-md px-3 py-2 text-sm text-muted [&.active]:bg-surface-2 [&.active]:text-text"
-            >
+/** Used when a theme ships no Shell of its own. */
+function DefaultShell({ nav, Link: L, controls, status, children }: ShellProps) {
+  return (
+    <div className="min-h-dvh bg-bg text-text">
+      <header className="flex flex-wrap items-center gap-3 border-border border-b p-3">
+        <nav className="flex flex-wrap gap-1">
+          {nav.map((n) => (
+            <L key={n.to} to={n.to} className="px-3 py-2 text-muted text-sm [&.active]:text-text">
               {n.label}
-            </Link>
+            </L>
           ))}
         </nav>
-        <div className="mt-6">
-          <ThemeToggle />
+        <div className="ml-auto flex items-center gap-3">
+          {status}
+          {controls}
         </div>
-      </aside>
-      <main className="p-4 md:p-8">
-        <Outlet />
-      </main>
+      </header>
+      <main className="p-4 md:p-8">{children}</main>
     </div>
-  ),
-});
-
-function Placeholder({ title }: { title: string }) {
-  return (
-    <section>
-      <h1 className="mb-2 text-2xl font-semibold">{title}</h1>
-      <p className="text-muted">Kommt in Schritt 3.</p>
-    </section>
   );
 }
 
-function Overview() {
+function ApiStatus() {
+  const { t } = useT();
   const health = useQuery({
     queryKey: ["healthz"],
     queryFn: () => api<{ ok: boolean }>("/healthz"),
+    retry: false,
   });
+  const state = health.isPending ? "checking" : health.data?.ok ? "online" : "offline";
+  const color =
+    state === "online" ? "var(--ok)" : state === "offline" ? "var(--warn)" : "var(--idle)";
+  return (
+    <span
+      className="flex items-center gap-2 font-[family-name:var(--font-mono)] text-muted text-xs"
+      role="status"
+    >
+      <span className="h-2 w-2 rounded-full" style={{ background: color }} aria-hidden="true" />
+      {t(`status.api.${state}`)}
+    </span>
+  );
+}
+
+function Root() {
+  const { t } = useT();
+  const { theme, scheme } = useTheme();
+  const Shell = theme.Shell ?? DefaultShell;
+  return (
+    <Shell
+      nav={NAV.map((n) => ({ to: n.to, label: t(n.key) }))}
+      Link={ShellLink}
+      controls={<QuickControls />}
+      status={<ApiStatus />}
+      scheme={scheme}
+    >
+      <Outlet />
+    </Shell>
+  );
+}
+
+function Placeholder({ titleKey }: { titleKey: string }): ReactNode {
+  const { t } = useT();
   return (
     <section>
-      <h1 className="mb-4 text-2xl font-semibold">Übersicht</h1>
-      <div className="rounded-xl border border-border bg-surface p-4">
-        API:{" "}
-        {health.isPending ? (
-          "…"
-        ) : health.data?.ok ? (
-          <span className="text-ok">erreichbar</span>
-        ) : (
-          <span className="text-heat">nicht erreichbar</span>
-        )}
-      </div>
+      <h1 className="m-0 mb-2 font-[family-name:var(--font-display)] font-semibold text-2xl">
+        {t(titleKey)}
+      </h1>
+      <p className="text-muted">{t("placeholder.soon")}</p>
     </section>
   );
 }
 
+const rootRoute = createRootRouteWithContext<{ queryClient: QueryClient }>()({ component: Root });
 const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: Overview });
-const pages = NAV.slice(1).map((n) =>
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/settings",
+  component: AppearanceSettings,
+});
+const pages = NAV.slice(1, 4).map((n) =>
   createRoute({
     getParentRoute: () => rootRoute,
     path: n.to,
-    component: () => <Placeholder title={n.label} />,
+    component: () => <Placeholder titleKey={n.key} />,
   }),
 );
 
-export const routeTree = rootRoute.addChildren([indexRoute, ...pages]);
+export const routeTree = rootRoute.addChildren([indexRoute, settingsRoute, ...pages]);
