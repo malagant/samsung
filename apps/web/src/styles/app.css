@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Light is the default; dark follows the OS unless the user
+ * picked a theme (data-theme on <html>). The visual direction is a placeholder
+ * until a design draft is chosen.
+ */
+:root {
+  --bg: oklch(98.5% 0.004 90);
+  --surface: oklch(100% 0 0);
+  --surface-2: oklch(96% 0.006 90);
+  --text: oklch(22% 0.01 260);
+  --text-muted: oklch(50% 0.01 260);
+  --border: oklch(90% 0.006 90);
+  --accent: oklch(62% 0.15 45);
+  --heat: oklch(62% 0.19 30);
+  --dhw: oklch(60% 0.14 245);
+  --ok: oklch(64% 0.14 150);
+  --warn: oklch(75% 0.15 80);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: oklch(17% 0.012 260);
+    --surface: oklch(21% 0.014 260);
+    --surface-2: oklch(25% 0.014 260);
+    --text: oklch(94% 0.006 90);
+    --text-muted: oklch(70% 0.01 260);
+    --border: oklch(30% 0.014 260);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: oklch(17% 0.012 260);
+  --surface: oklch(21% 0.014 260);
+  --surface-2: oklch(25% 0.014 260);
+  --text: oklch(94% 0.006 90);
+  --text-muted: oklch(70% 0.01 260);
+  --border: oklch(30% 0.014 260);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-heat: var(--heat);
+  --color-dhw: var(--dhw);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}

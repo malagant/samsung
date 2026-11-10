@@ -1,0 +1,5 @@
+# Replace with your age public key (age-keygen -o samsung.agekey).
+creation_rules:
+  - path_regex: deploy/.*\.sops\.yaml$
+    encrypted_regex: ^(data|stringData)$
+    age: age1replacewithyourpublickeyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

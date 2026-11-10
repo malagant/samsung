@@ -1,0 +1,15 @@
+# Requires the CloudNativePG operator (deploy/infrastructure/cnpg).
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: db
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+  storage:
+    size: 5Gi
+  bootstrap:
+    initdb:
+      database: samsung
+      owner: samsung
+  # CNPG creates the secret "db-app" with uri/username/password.
