@@ -27,12 +27,29 @@ just check              # lint, typecheck, tests
 | Path                    | What                                                                             |
 | ----------------------- | -------------------------------------------------------------------------------- |
 | `apps/api`              | Hono API: SmartThings OAuth, webhooks, polling, persistence (Drizzle + Postgres) |
-| `apps/web`              | React SPA (Vite, TanStack Router/Query, Tailwind), light and dark mode           |
+| `apps/web`              | React SPA (Vite, TanStack Router/Query, Tailwind), theme plugins, de/en          |
 | `packages/ehs-decoder`  | Decoder for `samsungce.ehsCycleData` hex blobs + FSV catalog                     |
+| `packages/theme-kit`    | Theme plugin contract: tokens, fonts, shape, optional shell, contrast checks     |
 | `deploy/k8s`            | Kustomize base and `home` overlay                                                |
 | `deploy/infrastructure` | CloudNativePG operator (Postgres) via Flux HelmRelease                           |
 | `deploy/flux`           | Flux `GitRepository` + `Kustomization`s for the cluster                          |
 | `docs/`                 | Reverse-engineering notes (cycle-data layout)                                    |
+
+## Themes
+
+The web app ships three theme plugins: **Glut** (warm, IBM Plex, sidebar), **Fjord** (calm, Manrope, pill navigation) and **Leitstand** (technical, Space Grotesk, hard edges). Each one has a light and a dark palette. Users pick theme, colour scheme and language under _Settings_; the choice is stored in the browser.
+
+To add a theme, create `apps/web/src/themes/<id>/index.tsx` that default-exports `defineTheme({...})` from `@samsung/theme-kit`. The registry picks it up at build time, nothing else needs to change. A theme provides:
+
+- `tokens.light` / `tokens.dark`: colours (`bg`, `surface`, `surface2`, `text`, `muted`, `border`, `accent`, `onAccent`, `heat`, `dhw`, `ok`, `warn`, `idle`) as `#rrggbb`
+- `fonts`, `shape` (radius, borders) and `typography` (uppercase labels, numeral font)
+- optionally a `Shell` component (the page frame and navigation) and `messages` that override any UI string per language
+
+`pnpm test` fails if a theme breaks the contract or misses WCAG contrast (4.5:1 for text, 3:1 for status colours).
+
+## Languages
+
+UI strings live in `apps/web/src/i18n/locales/<lang>.json` (flat keys, i18next). German is the default and fallback, English is included. To add a language, add a catalogue with the same keys, list it in `LOCALES` in `apps/web/src/i18n/index.ts` and add `lang.<code>` to every catalogue. A test checks that all catalogues have the same keys and placeholders.
 
 ## Deployment (Flux)
 
