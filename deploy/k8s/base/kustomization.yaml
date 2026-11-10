@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: samsung
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - api.yaml
+  - web.yaml
+  - ingress.yaml
+configMapGenerator:
+  - name: api-config
+    literals:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - TZ=Europe/Berlin
+      - API_PORT=8787
+      - SMARTTHINGS_MONTHLY_CALL_BUDGET=100000
+      - SMARTTHINGS_POLL_INTERVAL_SECONDS=300

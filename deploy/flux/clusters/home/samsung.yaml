@@ -1,0 +1,42 @@
+# Apply once (or commit into your fleet repo): kubectl apply -f deploy/flux/clusters/home/samsung.yaml
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: samsung
+  namespace: flux-system
+spec:
+  interval: 5m
+  url: https://github.com/malagant/samsung
+  ref: { branch: main }
+  # Private repo: create the secret with `flux create secret git samsung-auth ...`
+  secretRef: { name: samsung-auth }
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: samsung-infrastructure
+  namespace: flux-system
+spec:
+  interval: 1h
+  sourceRef: { kind: GitRepository, name: samsung }
+  path: ./deploy/infrastructure/cnpg
+  prune: true
+  wait: true
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: samsung
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: samsung-infrastructure
+  interval: 10m
+  sourceRef: { kind: GitRepository, name: samsung }
+  path: ./deploy/k8s/overlays/home
+  prune: true
+  wait: true
+  timeout: 5m
+  decryption:
+    provider: sops
+    secretRef: { name: sops-age }

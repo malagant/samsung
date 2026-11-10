@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.direnv/
+.env.local
+.env.*.local
+*.log
+coverage/
+.turbo/
+result
+*.agekey
