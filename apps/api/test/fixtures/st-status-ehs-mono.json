@@ -1,0 +1,75 @@
+{
+  "_note": "Synthetic SmartThings /status for an EHS Mono. Component and capability layout follows public SmartThings EHS examples and still has to be checked against the owner's device; the cycle-data hex and values are the owner's real reading from 2026-11-10.",
+  "components": {
+    "main": {
+      "switch": { "switch": { "value": "on", "timestamp": "2026-11-10T10:30:00.000Z" } },
+      "airConditionerMode": {
+        "airConditionerMode": { "value": "eco", "timestamp": "2026-11-10T10:30:00.000Z" }
+      },
+      "temperatureMeasurement": {
+        "temperature": { "value": 44.4, "unit": "C", "timestamp": "2026-11-10T10:38:00.000Z" }
+      },
+      "thermostatCoolingSetpoint": {
+        "coolingSetpoint": { "value": 47, "unit": "C", "timestamp": "2026-11-10T10:30:00.000Z" }
+      },
+      "powerConsumptionReport": {
+        "powerConsumption": {
+          "value": {
+            "energy": 10514547,
+            "deltaEnergy": 513,
+            "power": 1210,
+            "start": "2026-11-10T10:28:39Z",
+            "end": "2026-11-10T10:38:39Z"
+          },
+          "timestamp": "2026-11-10T10:38:39.845Z"
+        }
+      },
+      "samsungce.ehsTemperatureReference": {
+        "temperatureReference": { "value": "water", "timestamp": "2026-11-01T08:00:00.000Z" }
+      },
+      "samsungce.ehsDiverterValve": {
+        "position": { "value": "room", "timestamp": "2026-11-10T10:31:00.000Z" }
+      },
+      "samsungce.ehsDefrostMode": {
+        "status": { "value": "off", "timestamp": "2026-11-10T09:00:00.000Z" }
+      },
+      "samsungce.ehsFsvSettings": {
+        "fsvSettings": {
+          "value": [
+            { "id": "1031", "value": 55, "minValue": 37, "maxValue": 75, "unit": "C" },
+            { "id": "1032", "value": 25 },
+            { "id": "2011", "value": -10 },
+            { "id": "2012", "value": 20 },
+            { "id": "2021", "value": 38 },
+            { "id": "2022", "value": 27 }
+          ],
+          "timestamp": "2026-10-27T06:12:00.000Z"
+        }
+      },
+      "samsungce.ehsCycleData": {
+        "outdoor": {
+          "value": "002A002A697139383C020125017C000300000027008F786E00000000",
+          "timestamp": "2026-11-10T10:38:39.000Z"
+        }
+      }
+    },
+    "INDOOR": {
+      "switch": { "switch": { "value": "on", "timestamp": "2026-11-10T10:30:00.000Z" } },
+      "airConditionerMode": {
+        "airConditionerMode": { "value": "auto", "timestamp": "2026-11-10T10:30:00.000Z" }
+      },
+      "temperatureMeasurement": {
+        "temperature": { "value": 32.2, "unit": "C", "timestamp": "2026-11-10T10:38:00.000Z" }
+      },
+      "thermostatCoolingSetpoint": {
+        "coolingSetpoint": { "value": 32.5, "unit": "C", "timestamp": "2026-11-10T10:35:00.000Z" }
+      },
+      "samsungce.ehsCycleData": {
+        "indoor": {
+          "value": "61FF5E6462FF00BE64000000000000000001000000095528000000635763FF",
+          "timestamp": "2026-11-10T10:38:39.000Z"
+        }
+      }
+    }
+  }
+}

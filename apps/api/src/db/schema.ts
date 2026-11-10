@@ -161,3 +161,9 @@ export const shares = pgTable("shares", {
   snapshot: jsonb("snapshot"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** SmartThings API calls per calendar month (UTC), for the Developer Plan budget. */
+export const apiCallCounts = pgTable("api_call_counts", {
+  month: text("month").primaryKey(), // "2026-11"
+  calls: integer("calls").notNull().default(0),
+});

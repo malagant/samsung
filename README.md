@@ -51,6 +51,16 @@ To add a theme, create `apps/web/src/themes/<id>/index.tsx` that default-exports
 
 UI strings live in `apps/web/src/i18n/locales/<lang>.json` (flat keys, i18next). German is the default and fallback, English is included. To add a language, add a catalogue with the same keys, list it in `LOCALES` in `apps/web/src/i18n/index.ts` and add `lang.<code>` to every catalogue. A test checks that all catalogues have the same keys and placeholders.
 
+## SmartThings data
+
+Once the owner has linked SmartThings (`/auth/smartthings`), the API polls every heat pump on the account: one `GET /devices/{id}/status` per device, at least every `SMARTTHINGS_POLL_INTERVAL_SECONDS` and slower when needed so the month stays within `SMARTTHINGS_MONTHLY_CALL_BUDGET` (20 % is kept back for commands). Webhook events trigger an early poll, at most once a minute. Tokens are refreshed shortly before they expire, and HTTP 429 makes the poller back off.
+
+Each poll becomes one `telemetry` row, raw cycle-data hex included, so history can be decoded again later. The mapping lives in `apps/api/src/telemetry/mapping.ts`. Each value is looked up on a list of candidate components (`main`, `INDOOR`, `INDOOR1`, …), because Samsung spreads values across components differently per model.
+
+Read endpoints for the dashboard: `GET /devices`, `/devices/{id}/latest`, `/devices/{id}/telemetry?hours=24`, `/devices/{id}/fsv` and `/smartthings/status`. They are not behind app login yet.
+
+Migrations in `apps/api/drizzle/` run when the API starts. Database tests run when `TEST_DATABASE_URL` is set: `.envrc` points it at a separate `<db>_test` database, `just db-up` creates that database, and CI starts a Postgres service for them.
+
 ## Deployment (Flux)
 
 1. CI builds `ghcr.io/malagant/samsung-{api,web}` on every push to `main`.

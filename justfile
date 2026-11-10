@@ -9,6 +9,7 @@ db-up:
     test -d "$PGDATA" || initdb -U "$POSTGRES_USER" --auth=trust -D "$PGDATA"
     pg_ctl -D "$PGDATA" -o "-k $PGHOST -p $PGPORT" -l "$PGDATA/log" start
     createdb -h localhost -U "$POSTGRES_USER" "$POSTGRES_DB" 2>/dev/null || true
+    createdb -h localhost -U "$POSTGRES_USER" "${POSTGRES_DB}_test" 2>/dev/null || true
 
 db-down:
     pg_ctl -D "$PGDATA" stop
