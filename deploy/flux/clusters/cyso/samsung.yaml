@@ -1,4 +1,6 @@
-# Apply once (or commit into your fleet repo): kubectl apply -f deploy/flux/clusters/cyso/samsung.yaml
+# Apply once: kubectl apply -f deploy/flux/clusters/cyso/samsung.yaml
+# The Cyso cluster already runs CloudNativePG (cnpg-system/cloudnative-pg, managed
+# by the cluster's own Flux fleet), so this does NOT deploy deploy/infrastructure/cnpg.
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: GitRepository
 metadata:
@@ -12,23 +14,9 @@ spec:
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: samsung-infrastructure
-  namespace: flux-system
-spec:
-  interval: 1h
-  sourceRef: { kind: GitRepository, name: samsung }
-  path: ./deploy/infrastructure/cnpg
-  prune: true
-  wait: true
----
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
   name: samsung
   namespace: flux-system
 spec:
-  dependsOn:
-    - name: samsung-infrastructure
   interval: 10m
   sourceRef: { kind: GitRepository, name: samsung }
   path: ./deploy/k8s/overlays/cyso
