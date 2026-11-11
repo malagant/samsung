@@ -7,14 +7,11 @@ import { randomBytes, type ScryptOptions, scrypt, timingSafeEqual } from "node:c
 const PARAMS = { N: 2 ** 15, r: 8, p: 1 } as const;
 const KEY_LEN = 64;
 
-function derive(password: string, salt: Buffer, opts: ScryptOptions): Promise<Buffer> {
+function derive(plain: string, salt: Buffer, opts: ScryptOptions): Promise<Buffer> {
+  const input = plain.normalize("NFKC");
   return new Promise((resolve, reject) =>
-    scrypt(
-      password.normalize("NFKC"),
-      salt,
-      KEY_LEN,
-      { ...opts, maxmem: 128 * 1024 * 1024 },
-      (err, key) => (err ? reject(err) : resolve(key)),
+    scrypt(input, salt, KEY_LEN, { ...opts, maxmem: 128 * 1024 * 1024 }, (err, key) =>
+      err ? reject(err) : resolve(key),
     ),
   );
 }

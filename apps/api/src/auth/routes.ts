@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { Hono } from "hono";
 import { z } from "zod";
 import { hashPassword, passwordProblem, verifyPassword } from "./password.js";
@@ -51,7 +52,7 @@ export function authRoutes(opts: SessionOptions) {
     const key = normalizeEmail(body.data.email);
     if (!limiter.allow(key)) return c.json({ error: "too_many_attempts" }, 429);
     const found = await opts.store.findByEmail(key);
-    dummyHash ??= hashPassword("not-a-real-password");
+    dummyHash ??= hashPassword(randomBytes(24).toString("base64url"));
     const ok = await verifyPassword(body.data.password, found?.passwordHash ?? (await dummyHash));
     if (!found || !ok) return c.json({ error: "invalid_credentials" }, 401);
     limiter.reset(key);
