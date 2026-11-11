@@ -19,6 +19,6 @@ COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/package.json ./
 COPY --from=build /repo/apps/api/dist ./dist
 COPY --from=build /repo/apps/api/drizzle ./drizzle
-USER node
+USER 1000:1000
 EXPOSE 8787
 CMD ["node", "dist/server.js"]
