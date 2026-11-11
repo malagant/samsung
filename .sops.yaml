@@ -1,5 +1,10 @@
-# Replace with your age public key (age-keygen -o samsung.agekey).
+# age public keys per overlay. Private keys live outside the repo
+# (cyso: ~/.config/sops/age/samsung.txt, in-cluster as flux-system/sops-age).
 creation_rules:
+  - path_regex: deploy/k8s/overlays/cyso/.*\.sops\.yaml$
+    encrypted_regex: ^(data|stringData)$
+    age: age1kdhypw9fpxd42cj70q7vkudxtxdadeh5vpcy75q8wgc73k460sqs68hwlm
+  # Replace with your age public key (age-keygen -o samsung.agekey).
   - path_regex: deploy/.*\.sops\.yaml$
     encrypted_regex: ^(data|stringData)$
     age: age1replacewithyourpublickeyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
