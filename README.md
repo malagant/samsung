@@ -61,6 +61,28 @@ Read endpoints for the dashboard: `GET /devices`, `/devices/{id}/latest`, `/devi
 
 Migrations in `apps/api/drizzle/` run when the API starts. Database tests run when `TEST_DATABASE_URL` is set: `.envrc` points it at a separate `<db>_test` database, `just db-up` creates that database, and CI starts a Postgres service for them.
 
+## Sign-in
+
+On first start the app asks for the owner's e-mail and password (at least 10 characters).
+After that every data endpoint needs a session; only the owner can link SmartThings and
+manage family members, who get read access.
+
+- Passwords are hashed with scrypt; the session token lives in an HttpOnly, SameSite=Lax
+  cookie (Secure when `WEB_PUBLIC_URL` is https) and only its SHA-256 is stored.
+- State-changing requests must be JSON, which keeps other sites from posting forms.
+- Ten failed logins per e-mail within 15 minutes block further attempts for that address.
+- Changing a password signs out every other session.
+
+Forgotten owner password: mark the owner as not set up, then open the app and run setup
+again. Devices, telemetry and the SmartThings link stay; all sessions end.
+
+```sh
+kubectl -n samsung exec -it db-1 -- psql -d samsung -c \
+  "update users set password_hash = '!' where role = 'owner'; delete from sessions;"
+```
+
+Do this only while nobody else can reach the app, since the next visitor sets the owner.
+
 ## Deployment (Flux)
 
 1. CI builds `ghcr.io/malagant/samsung-{api,web}` on every push to `main`.

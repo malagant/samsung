@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import pino from "pino";
 import { createApp } from "./app.js";
+import { DrizzleAuthStore } from "./auth/drizzle-auth-store.js";
 import { createDb } from "./db/client.js";
 import { loadEnv } from "./env.js";
 import { DrizzleTelemetryStore } from "./telemetry/drizzle-store.js";
@@ -22,6 +23,7 @@ const poller = new Poller({ env, store, log });
 const app = createApp({
   env,
   store,
+  auth: new DrizzleAuthStore(db),
   accountStatus: () => store.accountStatus(),
   ping: async () => {
     await db.execute(sql`select 1`);

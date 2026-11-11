@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
+import { DrizzleAuthStore } from "../src/auth/drizzle-auth-store.js";
 import { createDb, type Db } from "../src/db/client.js";
 import { loadEnv } from "../src/env.js";
 import type { DeviceStatus } from "../src/smartthings/types.js";
@@ -78,21 +79,34 @@ describe.skipIf(!url)("DrizzleTelemetryStore (Postgres)", () => {
     const app = createApp({
       env,
       store,
+      auth: new DrizzleAuthStore(db),
       accountStatus: () => store.accountStatus(),
       ping: async () => {},
       saveTokens: async () => {},
       onDeviceEvents: async () => {},
       now: () => new Date("2026-11-10T11:00:00Z"),
     });
-    const res = await app.request("/devices/hp-1/telemetry?hours=6");
+    expect((await app.request("/devices")).status).toBe(401);
+    // Linking SmartThings first left a placeholder owner; setup completes that same user.
+    const setup = await app.request("/auth/setup", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: "owner@example.org", password: "correct horse battery" }),
+    });
+    expect(setup.status).toBe(201);
+    const [a] = await store.accounts();
+    expect(((await setup.json()) as { user: { id: string } }).user.id).toBe(a?.userId);
+    const cookie = (setup.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+    const get = (path: string) => app.request(path, { headers: { cookie } });
+    const res = await get("/devices/hp-1/telemetry?hours=6");
     const body = (await res.json()) as { rows: unknown[]; summary: { samples: number } };
     expect(body.summary.samples).toBe(1);
     expect(body.rows[0]).not.toHaveProperty("rawIndoorCycleData");
-    const fsv = (await (await app.request("/devices/hp-1/fsv")).json()) as {
+    const fsv = (await (await get("/devices/hp-1/fsv")).json()) as {
       values: Record<string, number>;
     };
     expect(fsv.values["2021"]).toBe(38);
-    const st = (await (await app.request("/smartthings/status")).json()) as Record<string, unknown>;
+    const st = (await (await get("/smartthings/status")).json()) as Record<string, unknown>;
     expect(st).toMatchObject({ linked: true, pollingStatus: "active", callsThisMonth: 3 });
   });
 
@@ -103,5 +117,21 @@ describe.skipIf(!url)("DrizzleTelemetryStore (Postgres)", () => {
     expect((await store.accountStatus())?.pollingStatus).toBe("failing");
     await store.recordPoll(a?.userId ?? "", true, new Date());
     expect((await store.accountStatus())?.pollingStatus).toBe("active");
+  });
+  it("stores family members and sessions, and drops sessions with the member", async () => {
+    const auth = new DrizzleAuthStore(db);
+    expect(await auth.setupRequired()).toBe(false);
+    const owner = await auth.findByEmail("OWNER@example.org");
+    expect(owner?.role).toBe("owner");
+    const kid = await auth.addFamily(owner?.id ?? "", "kid@example.org", "hash", "Kid");
+    expect(await auth.family(owner?.id ?? "")).toEqual([kid]);
+    const now = new Date("2026-11-10T11:00:00Z");
+    await auth.createSession("t1", kid.id, new Date(now.getTime() + 60_000));
+    await auth.createSession("t2", kid.id, new Date(now.getTime() - 60_000));
+    expect(await auth.sessionUser("t1", now)).toEqual(kid);
+    expect(await auth.sessionUser("t2", now)).toBeNull();
+    expect(await auth.removeFamily(kid.id, kid.id)).toBe(false);
+    expect(await auth.removeFamily(owner?.id ?? "", kid.id)).toBe(true);
+    expect(await auth.sessionUser("t1", now)).toBeNull();
   });
 });

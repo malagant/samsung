@@ -41,7 +41,7 @@ describe("ThemeProvider", () => {
     await act(async () => {
       fireEvent.click(screen.getByLabelText("English"));
     });
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Settings");
+    expect(screen.getByRole("region", { name: "Language" })).toBeTruthy();
     expect(document.documentElement.lang).toBe("en");
   });
 });
