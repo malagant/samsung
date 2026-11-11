@@ -5,6 +5,8 @@ import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import type { Env } from "./env.js";
 import { authorizeUrl, exchangeCode, type TokenSet } from "./smartthings/oauth.js";
+import { monthKey, type TelemetryStore } from "./telemetry/store.js";
+import { summarize } from "./telemetry/summary.js";
 
 export interface AppDeps {
   env: Env;
@@ -14,6 +16,14 @@ export interface AppDeps {
   onDeviceEvents: (events: unknown[]) => Promise<void>;
   /** Reachability check for /readyz (e.g. SELECT 1). */
   ping: () => Promise<void>;
+  /** Read access to stored telemetry for the dashboard. */
+  store?: Pick<
+    TelemetryStore,
+    "allDevices" | "lastTelemetry" | "telemetryRange" | "callsThisMonth" | "latestFsv"
+  >;
+  /** Polling state of the linked SmartThings account, or null when none is linked. */
+  accountStatus?: () => Promise<{ pollingStatus: string; lastSuccessfulPoll: Date | null } | null>;
+  now?: () => Date;
   fetchImpl?: typeof fetch;
 }
 
@@ -94,6 +104,54 @@ export function createApp(deps: AppDeps) {
         return c.json({}, 200);
     }
   });
+
+  // ── Telemetry (read) ───────────────────────────────────────────
+  // NOTE: not yet behind app login; that arrives with the login change.
+  const now = deps.now ?? (() => new Date());
+  const store = deps.store;
+  if (store) {
+    app.get("/smartthings/status", async (c) => {
+      const status = await deps.accountStatus?.();
+      return c.json({
+        linked: status !== null && status !== undefined,
+        pollingStatus: status?.pollingStatus ?? null,
+        lastSuccessfulPoll: status?.lastSuccessfulPoll?.toISOString() ?? null,
+        callsThisMonth: await store.callsThisMonth(monthKey(now())),
+        monthlyBudget: env.SMARTTHINGS_MONTHLY_CALL_BUDGET,
+      });
+    });
+
+    app.get("/devices", async (c) => {
+      const list = await store.allDevices();
+      return c.json(list.map(({ userId: _u, ...d }) => d));
+    });
+
+    app.get("/devices/:id/latest", async (c) => {
+      const row = await store.lastTelemetry(c.req.param("id"));
+      return row ? c.json(row) : c.json({ error: "no_data" }, 404);
+    });
+
+    app.get("/devices/:id/fsv", async (c) => {
+      const fsv = await store.latestFsv(c.req.param("id"));
+      return fsv
+        ? c.json({ reportedAt: fsv.reportedAt.toISOString(), values: fsv.values })
+        : c.json({ error: "no_data" }, 404);
+    });
+
+    app.get("/devices/:id/telemetry", async (c) => {
+      const hours = Math.min(24 * 31, Math.max(1, Number(c.req.query("hours")) || 24));
+      const to = now();
+      const from = new Date(to.getTime() - hours * 3600_000);
+      const rows = await store.telemetryRange(c.req.param("id"), from, to);
+      const withRaw = c.req.query("raw") === "1";
+      return c.json({
+        summary: summarize(rows, from, to),
+        rows: withRaw
+          ? rows
+          : rows.map(({ rawIndoorCycleData: _i, rawOutdoorCycleData: _o, ...r }) => r),
+      });
+    });
+  }
 
   return app;
 }

@@ -17,7 +17,6 @@
   "kpi.heating": "Heating",
   "kpi.dhw": "Hot water",
   "kpi.outdoor": "Outdoor",
-  "kpi.energy24h": "Power 24 h",
   "kpi.on": "on",
   "kpi.off": "off",
   "kpi.standby": "Standby",
@@ -62,5 +61,17 @@
   "lang.en": "English",
   "status.api.checking": "Checking API …",
   "status.api.online": "API online",
-  "status.api.offline": "API offline"
+  "status.api.offline": "API offline",
+  "kpi.energy": "Power {{range}}",
+  "kpi.dhwHeating": "heating up",
+  "mode.std": "Standard",
+  "mode.power": "Power",
+  "mode.force": "Force",
+  "mode.heat": "Heat",
+  "mode.cool": "Cool",
+  "timeline.defrost": "Defrost",
+  "timeline.off": "Off",
+  "timeline.none": "no data",
+  "timeline.empty": "No readings for this period yet.",
+  "curve.unknown": "The heating curve appears once SmartThings reports the FSV values."
 }

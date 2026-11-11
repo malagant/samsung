@@ -1,3 +1,5 @@
+import type { DeviceStatus, DeviceSummary } from "./types.js";
+
 /** Minimal SmartThings REST client. Every request counts against the monthly budget. */
 export interface SmartThingsClientOptions {
   baseUrl: string;
@@ -34,19 +36,12 @@ export class SmartThingsClient {
   }
 
   listDevices() {
-    return this.request<{
-      items: Array<{ deviceId: string; label: string; manufacturerName?: string }>;
-    }>("/devices");
+    return this.request<{ items: DeviceSummary[] }>("/devices");
   }
 
   /** Full status of all components and capabilities: one call per poll. */
   deviceStatus(deviceId: string) {
-    return this.request<{
-      components: Record<
-        string,
-        Record<string, Record<string, { value: unknown; timestamp?: string }>>
-      >;
-    }>(`/devices/${encodeURIComponent(deviceId)}/status`);
+    return this.request<DeviceStatus>(`/devices/${encodeURIComponent(deviceId)}/status`);
   }
 
   executeCommands(deviceId: string, commands: Command[]) {
