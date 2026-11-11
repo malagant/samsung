@@ -73,3 +73,17 @@ Migrations in `apps/api/drizzle/` run when the API starts. Database tests run wh
 
 The web container proxies `/api/*` to the API service, so the ingress needs a single host.
 The SmartThings redirect URI is `https://<host>/api/auth/smartthings/callback`.
+
+### Cyso Cloud (internal only)
+
+`deploy/k8s/overlays/cyso` drops the Ingress, so nothing is exposed publicly. The age key
+for its secrets lives at `~/.config/sops/age/samsung.txt` (not in the repo).
+
+```bash
+kubectl -n flux-system create secret generic sops-age --from-file=age.agekey=$HOME/.config/sops/age/samsung.txt
+kubectl apply -f deploy/flux/clusters/cyso/samsung.yaml
+kubectl -n samsung port-forward svc/web 8080:80   # then open http://localhost:8080
+```
+
+Edit secrets with `SOPS_AGE_KEY_FILE=~/.config/sops/age/samsung.txt sops deploy/k8s/overlays/cyso/secrets.sops.yaml`.
+The SmartThings redirect URI for this setup is `http://localhost:8080/api/auth/smartthings/callback`.
