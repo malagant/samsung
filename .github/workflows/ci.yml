@@ -49,6 +49,7 @@ jobs:
           curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz | tar xz
           kubectl kustomize deploy/k8s/overlays/home | ./kubeconform -strict -ignore-missing-schemas -summary
           kubectl kustomize deploy/infrastructure/cnpg | ./kubeconform -strict -ignore-missing-schemas -summary
+          kubectl kustomize deploy/infrastructure/tailscale-operator/base | ./kubeconform -strict -ignore-missing-schemas -summary
 
   images:
     if: github.event_name == 'push'

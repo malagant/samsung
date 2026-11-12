@@ -1,0 +1,17 @@
+# Tailscale operator for tailnet-only access to the app (no public Ingress).
+# Apply once: kubectl apply -f deploy/flux/clusters/cyso/tailscale-operator.yaml
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: tailscale-operator
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef: { kind: GitRepository, name: samsung }
+  path: ./deploy/infrastructure/tailscale-operator/cyso
+  prune: true
+  wait: true
+  timeout: 5m
+  decryption:
+    provider: sops
+    secretRef: { name: sops-age }

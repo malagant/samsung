@@ -1,0 +1,10 @@
+# Tailscale Kubernetes operator. It joins the cluster to the tailnet and turns
+# Ingresses with ingressClassName "tailscale" into tailnet-only HTTPS endpoints.
+# Needs the Secret tailscale/operator-oauth (client_id, client_secret) from an
+# overlay; see README "Tailscale".
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - helmrepository.yaml
+  - helmrelease.yaml

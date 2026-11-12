@@ -20,6 +20,9 @@ spec:
   interval: 10m
   sourceRef: { kind: GitRepository, name: samsung }
   path: ./deploy/k8s/overlays/cyso
+  # The app's Ingress uses the "tailscale" IngressClass from the operator.
+  dependsOn:
+    - name: tailscale-operator
   prune: true
   wait: true
   timeout: 5m
