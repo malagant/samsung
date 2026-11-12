@@ -1,4 +1,6 @@
-# Cyso Cloud: internal only. No Ingress; open the app with
+# Cyso Cloud: reachable only inside the tailnet, via the Tailscale operator
+# (deploy/infrastructure/tailscale-operator), at https://heatpump.ostrich-morpho.ts.net.
+# Port-forwarding still works for debugging:
 #   kubectl -n samsung port-forward svc/web 8080:80
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -10,20 +12,28 @@ configMapGenerator:
   - name: api-config
     behavior: merge
     literals:
-      - API_PUBLIC_URL=http://localhost:8080/api
-      - WEB_PUBLIC_URL=http://localhost:8080
-      - CORS_ORIGINS=http://localhost:8080
-      - SMARTTHINGS_REDIRECT_URI=http://localhost:8080/api/auth/smartthings/callback
+      - API_PUBLIC_URL=https://heatpump.ostrich-morpho.ts.net/api
+      - WEB_PUBLIC_URL=https://heatpump.ostrich-morpho.ts.net
+      - CORS_ORIGINS=https://heatpump.ostrich-morpho.ts.net
+      - SMARTTHINGS_REDIRECT_URI=https://heatpump.ostrich-morpho.ts.net/api/auth/smartthings/callback
 images:
   - name: ghcr.io/malagant/samsung-api
     newTag: latest
   - name: ghcr.io/malagant/samsung-web
     newTag: latest
 patches:
+  # Tailscale Ingress: the first TLS host becomes the tailnet machine name;
+  # the operator fetches a Let's Encrypt cert for <name>.<tailnet>.ts.net.
   - target: { kind: Ingress, name: web }
     patch: |
-      $patch: delete
       apiVersion: networking.k8s.io/v1
       kind: Ingress
       metadata:
         name: web
+      spec:
+        ingressClassName: tailscale
+        defaultBackend:
+          service: { name: web, port: { name: http } }
+        tls:
+          - hosts: [heatpump]
+        rules: null

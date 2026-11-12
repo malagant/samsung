@@ -96,16 +96,35 @@ Do this only while nobody else can reach the app, since the next visitor sets th
 The web container proxies `/api/*` to the API service, so the ingress needs a single host.
 The SmartThings redirect URI is `https://<host>/api/auth/smartthings/callback`.
 
-### Cyso Cloud (internal only)
+### Cyso Cloud (tailnet only)
 
-`deploy/k8s/overlays/cyso` drops the Ingress, so nothing is exposed publicly. The age key
-for its secrets lives at `~/.config/sops/age/samsung.txt` (not in the repo).
+`deploy/k8s/overlays/cyso` exposes the app only inside the tailnet, through the
+[Tailscale Kubernetes operator](https://tailscale.com/kb/1236/kubernetes-operator), at
+`https://heatpump.ostrich-morpho.ts.net`. Nothing is reachable from the public internet.
+The age key for its secrets lives at `~/.config/sops/age/samsung.txt` (not in the repo).
+
+One-time Tailscale setup in the admin console:
+
+1. Access controls: add `"tagOwners": { "tag:k8s-operator": [], "tag:k8s": ["tag:k8s-operator"] }`.
+2. Settings → OAuth clients: create a client with write access to **Devices → Core** and
+   **Keys → Auth Keys**, both with tag `tag:k8s-operator`.
+3. Save its ID and secret as `CLIENT_ID=…` / `CLIENT_SECRET=…` in
+   `~/.config/tailscale/operator-oauth.env`, then encrypt them into the repo:
+
+```bash
+SOPS_AGE_KEY_FILE=~/.config/sops/age/samsung.txt deploy/scripts/tailscale-oauth-secret.sh
+```
+
+Bootstrap Flux (once):
 
 ```bash
 kubectl -n flux-system create secret generic sops-age --from-file=age.agekey=$HOME/.config/sops/age/samsung.txt
+kubectl apply -f deploy/flux/clusters/cyso/tailscale-operator.yaml
 kubectl apply -f deploy/flux/clusters/cyso/samsung.yaml
-kubectl -n samsung port-forward svc/web 8080:80   # then open http://localhost:8080
 ```
 
-Edit secrets with `SOPS_AGE_KEY_FILE=~/.config/sops/age/samsung.txt sops deploy/k8s/overlays/cyso/secrets.sops.yaml`.
-The SmartThings redirect URI for this setup is `http://localhost:8080/api/auth/smartthings/callback`.
+Edit app secrets with `SOPS_AGE_KEY_FILE=~/.config/sops/age/samsung.txt sops deploy/k8s/overlays/cyso/secrets.sops.yaml`.
+The SmartThings redirect URI for this setup is
+`https://heatpump.ostrich-morpho.ts.net/api/auth/smartthings/callback`. SmartThings
+webhooks cannot reach a tailnet address, so the app relies on polling there.
+For debugging, `kubectl -n samsung port-forward svc/web 8080:80` still works.
