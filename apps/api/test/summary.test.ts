@@ -9,6 +9,7 @@ function row(min: number, p: Partial<TelemetryRow>): TelemetryRow {
     cycleDataTs: null,
     mainSystemStatus: "on",
     heatingCircuitStatus: "on",
+    dhwStatus: "on",
     operatingMode: "auto",
     dhwOperatingMode: "eco",
     flowTemp: 30,

@@ -1,9 +1,9 @@
 import type { Logger } from "pino";
 import type { Env } from "../env.js";
 import { pollIntervalSeconds } from "../smartthings/budget.js";
-import { RateLimitedError, SmartThingsClient } from "../smartthings/client.js";
+import { type Command, RateLimitedError, SmartThingsClient } from "../smartthings/client.js";
 import { needsRefresh, refreshTokens } from "../smartthings/oauth.js";
-import { isEhsDevice, readFsv, statusToTelemetry } from "./mapping.js";
+import { isEhsDevice, readFsv, statusToTelemetry, type TelemetryRow } from "./mapping.js";
 import { type Account, monthKey, type TelemetryStore } from "./store.js";
 
 export interface PollerDeps {
@@ -12,6 +12,15 @@ export interface PollerDeps {
   log: Pick<Logger, "info" | "warn" | "error" | "debug">;
   fetchImpl?: typeof fetch;
   now?: () => Date;
+  /** Runs after each stored poll of a device (e.g. to drive a DHW boost). */
+  onPolled?: (deviceId: string, row: TelemetryRow) => Promise<void>;
+}
+
+/** No SmartThings account owns the device (not linked, or linked to someone else). */
+export class NotLinkedError extends Error {
+  constructor() {
+    super("device has no linked SmartThings account");
+  }
 }
 
 /** Re-discover devices once a day; every discovery costs one call. */
@@ -135,16 +144,49 @@ export class Poller {
       devices = await this.deps.store.devices(account.userId);
     }
     for (const d of devices) {
-      const status = await st.deviceStatus(d.id);
-      const prev = await this.deps.store.lastTelemetry(d.id);
-      const row = statusToTelemetry(status, {
-        now: this.now(),
-        previousEnergyWh: prev?.energyWh ?? null,
-      });
-      await this.deps.store.insertTelemetry(d.id, row);
-      const fsv = readFsv(status);
-      if (fsv && Object.keys(fsv.values).length > 0) await this.deps.store.saveFsv(d.id, fsv);
+      const row = await this.readDevice(st, d.id);
+      try {
+        await this.deps.onPolled?.(d.id, row);
+      } catch (err) {
+        this.deps.log.error({ err, deviceId: d.id }, "post-poll hook failed");
+      }
     }
     return devices.length;
+  }
+
+  private async readDevice(st: SmartThingsClient, deviceId: string): Promise<TelemetryRow> {
+    const status = await st.deviceStatus(deviceId);
+    const prev = await this.deps.store.lastTelemetry(deviceId);
+    const row = statusToTelemetry(status, {
+      now: this.now(),
+      previousEnergyWh: prev?.energyWh ?? null,
+    });
+    await this.deps.store.insertTelemetry(deviceId, row);
+    const fsv = readFsv(status);
+    if (fsv && Object.keys(fsv.values).length > 0) await this.deps.store.saveFsv(deviceId, fsv);
+    return row;
+  }
+
+  /**
+   * Sends commands to a device through its owner's account. With `refresh` the
+   * status is read back right away (one more call), so the UI shows the result.
+   */
+  async execute(
+    deviceId: string,
+    commands: Command[],
+    opts: { refresh: boolean },
+  ): Promise<TelemetryRow | null> {
+    const device = (await this.deps.store.allDevices()).find((d) => d.id === deviceId);
+    const account = device
+      ? (await this.deps.store.accounts()).find((a) => a.userId === device.userId)
+      : undefined;
+    if (!device || !account) throw new NotLinkedError();
+    const st = this.client(account);
+    await st.executeCommands(deviceId, commands);
+    this.deps.log.info(
+      { deviceId, commands: commands.map((c) => `${c.component}/${c.capability}.${c.command}`) },
+      "SmartThings command sent",
+    );
+    return opts.refresh ? this.readDevice(st, deviceId) : null;
   }
 }

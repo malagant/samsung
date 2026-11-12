@@ -51,6 +51,7 @@ export class MemoryStore implements TelemetryStore {
           label: d.label ?? "Heat pump",
           binaryId: null,
           temperatureReference: "water",
+          components: (d.components ?? []).map((c) => c.id),
         });
       }
     }

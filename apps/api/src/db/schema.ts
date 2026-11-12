@@ -80,6 +80,7 @@ export const telemetry = pgTable(
     cycleDataTs: timestamp("cycle_data_ts", { withTimezone: true }),
     mainSystemStatus: text("main_system_status"),
     heatingCircuitStatus: text("heating_circuit_status"),
+    dhwStatus: text("dhw_status"),
     operatingMode: text("operating_mode"),
     dhwOperatingMode: text("dhw_operating_mode"),
     flowTemp: doublePrecision("flow_temp"),
@@ -170,3 +171,29 @@ export const apiCallCounts = pgTable("api_call_counts", {
   month: text("month").primaryKey(), // "2026-11"
   calls: integer("calls").notNull().default(0),
 });
+
+/**
+ * DHW boost sessions run by the API: raise the tank target, switch DHW on, and
+ * restore both once the tank reaches the target or the time is up.
+ */
+export const dhwBoosts = pgTable("dhw_boosts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  deviceId: text("device_id")
+    .notNull()
+    .references(() => devices.id, { onDelete: "cascade" }),
+  startedBy: uuid("started_by").references(() => users.id, { onDelete: "set null" }),
+  target: doublePrecision("target").notNull(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  /** What to restore afterwards; null when it was unknown at the start. */
+  previousSetpoint: doublePrecision("previous_setpoint"),
+  previousOn: boolean("previous_on"),
+  /** active → restoring → done | failed; cancelled boosts also go through restoring. */
+  status: text("status").$type<BoostStatus>().notNull(),
+  restoreAttempts: integer("restore_attempts").notNull().default(0),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+  reason: text("reason").$type<BoostEndReason>(),
+});
+
+export type BoostStatus = "active" | "restoring" | "done" | "failed";
+export type BoostEndReason = "target_reached" | "timeout" | "cancelled";

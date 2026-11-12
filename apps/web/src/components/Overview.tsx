@@ -1,10 +1,13 @@
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { isRunning, useControlActions, useControls } from "../controls.js";
 import { useDevices, useFsv, useLatest, useWindow } from "../data.js";
 import { fmt, time, unit } from "../i18n/format.js";
 import { currentLocale } from "../i18n/index.js";
 import { demoModel, liveModel, type OverviewModel, type TimelineKind } from "../overview-model.js";
 import { useT } from "../theme/ThemeProvider.js";
-import { Card, Figure, Label, Switch } from "./ui.js";
+import { useControlError } from "./Controls.js";
+import { Button, Card, Figure, FormError, Label, Switch } from "./ui.js";
 
 const SEG_COLOR: Record<TimelineKind, string> = {
   heating: "var(--heat)",
@@ -18,7 +21,11 @@ const RANGES = { "6h": 6, "24h": 24, "7d": 168 } as const;
 type Range = keyof typeof RANGES;
 
 /** Live data when the API has some, otherwise the demo snapshot. */
-function useOverview(hours: number): { m: OverviewModel; loading: boolean } {
+function useOverview(hours: number): {
+  m: OverviewModel;
+  loading: boolean;
+  deviceId?: string;
+} {
   const devices = useDevices();
   const device = devices.data?.[0];
   const latest = useLatest(device?.id);
@@ -33,6 +40,7 @@ function useOverview(hours: number): { m: OverviewModel; loading: boolean } {
         fsv: fsv.data?.values,
       }),
       loading: false,
+      deviceId: device.id,
     };
   }
   return { m: demoModel(), loading: devices.isPending || (Boolean(device) && latest.isPending) };
@@ -42,7 +50,7 @@ export function Overview() {
   const { t } = useT();
   const l = currentLocale();
   const [range, setRange] = useState<Range>("24h");
-  const { m } = useOverview(RANGES[range]);
+  const { m, deviceId } = useOverview(RANGES[range]);
   const c = m.curve;
   const modeLabel = (mode: string | null) =>
     mode ? t(`mode.${mode}`, { defaultValue: mode }) : "–";
@@ -154,35 +162,7 @@ export function Overview() {
       </Card>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <Card label={t("controls.title")}>
-          <h2 className="m-0 mb-2 font-semibold text-base">{t("controls.title")}</h2>
-          <div className="flex items-center justify-between border-border border-b py-2.5">
-            <div>
-              <div className="font-medium text-sm">{t("controls.heating")}</div>
-              <Label>{t("controls.heatingCircuit")}</Label>
-            </div>
-            <Switch checked={m.heatingOn} label={t("controls.heating")} color="var(--heat)" />
-          </div>
-          <div className="flex items-center justify-between border-border border-b py-2.5">
-            <div>
-              <div className="font-medium text-sm">{t("controls.dhw")}</div>
-              <Label>{t("controls.dhwTarget", { value: unit.celsius(l, m.dhwSetpoint, 0) })}</Label>
-            </div>
-            <Switch checked={m.dhwOn} label={t("controls.dhw")} color="var(--dhw)" />
-          </div>
-          <div className="flex items-center justify-between gap-3 py-2.5">
-            <div>
-              <div className="font-medium text-sm">{t("controls.boost")}</div>
-              <Label>{t("controls.boostHint", { value: unit.celsius(l, m.boostTarget, 0) })}</Label>
-            </div>
-            <button
-              type="button"
-              className="min-h-11 rounded-[var(--control-radius)] bg-accent px-4 font-medium text-on-accent text-sm"
-            >
-              {t("controls.boostStart")}
-            </button>
-          </div>
-        </Card>
+        {m.live && deviceId ? <LiveControls deviceId={deviceId} /> : <DemoControls m={m} />}
         <Card label={t("curve.title")}>
           <div className="mb-2 flex items-baseline justify-between">
             <h2 className="m-0 font-semibold text-base">{t("curve.title")}</h2>
@@ -271,5 +251,109 @@ function Curve({ m, curve: c }: { m: OverviewModel; curve: NonNullable<OverviewM
         </span>
       </div>
     </>
+  );
+}
+
+/** Static controls card for the demo snapshot. */
+function DemoControls({ m }: { m: OverviewModel }) {
+  const { t } = useT();
+  const l = currentLocale();
+  return (
+    <Card label={t("controls.title")}>
+      <h2 className="m-0 mb-2 font-semibold text-base">{t("controls.title")}</h2>
+      <div className="flex items-center justify-between border-border border-b py-2.5">
+        <div>
+          <div className="font-medium text-sm">{t("controls.heating")}</div>
+          <Label>{t("controls.heatingCircuit")}</Label>
+        </div>
+        <Switch checked={m.heatingOn} label={t("controls.heating")} color="var(--heat)" />
+      </div>
+      <div className="flex items-center justify-between border-border border-b py-2.5">
+        <div>
+          <div className="font-medium text-sm">{t("controls.dhw")}</div>
+          <Label>{t("controls.dhwTarget", { value: unit.celsius(l, m.dhwSetpoint, 0) })}</Label>
+        </div>
+        <Switch checked={m.dhwOn} label={t("controls.dhw")} color="var(--dhw)" />
+      </div>
+      <div className="flex items-center justify-between gap-3 py-2.5">
+        <div>
+          <div className="font-medium text-sm">{t("controls.boost")}</div>
+          <Label>{t("controls.boostHint", { value: unit.celsius(l, m.boostTarget, 0) })}</Label>
+        </div>
+        <button
+          type="button"
+          disabled
+          className="min-h-11 disabled:opacity-60 rounded-[var(--control-radius)] bg-accent px-4 font-medium text-on-accent text-sm"
+        >
+          {t("controls.boostStart")}
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+/** Controls card on live data: switches act right away, the boost uses the default target. */
+function LiveControls({ deviceId }: { deviceId: string }) {
+  const { t } = useT();
+  const l = currentLocale();
+  const state = useControls(deviceId);
+  const actions = useControlActions(deviceId);
+  const errorText = useControlError();
+  const s = state.data;
+  const boostRunning = isRunning(s?.boost);
+  const boostTarget = Math.min(s?.dhw.range.max ?? 55, 55);
+  const error = actions.heating.error ?? actions.dhw.error ?? actions.startBoost.error;
+  return (
+    <Card label={t("controls.title")}>
+      <div className="mb-2 flex items-baseline justify-between">
+        <h2 className="m-0 font-semibold text-base">{t("controls.title")}</h2>
+        <Link to="/controls" className="text-accent text-sm">
+          {t("controls.more")}
+        </Link>
+      </div>
+      <div className="flex items-center justify-between border-border border-b py-2.5">
+        <div>
+          <div className="font-medium text-sm">{t("controls.heating")}</div>
+          <Label>{t("controls.heatingCircuit")}</Label>
+        </div>
+        <Switch
+          checked={s?.heating.on === true}
+          label={t("controls.heating")}
+          color="var(--heat)"
+          disabled={!s || s.heating.on === null || actions.heating.isPending}
+          onChange={(on) => actions.heating.mutate({ on })}
+        />
+      </div>
+      <div className="flex items-center justify-between border-border border-b py-2.5">
+        <div>
+          <div className="font-medium text-sm">{t("controls.dhw")}</div>
+          <Label>{t("controls.dhwTarget", { value: unit.celsius(l, s?.dhw.setpoint, 0) })}</Label>
+        </div>
+        <Switch
+          checked={s?.dhw.on === true}
+          label={t("controls.dhw")}
+          color="var(--dhw)"
+          disabled={!s || s.dhw.on === null || boostRunning || actions.dhw.isPending}
+          onChange={(on) => actions.dhw.mutate({ on })}
+        />
+      </div>
+      <div className="flex items-center justify-between gap-3 py-2.5">
+        <div>
+          <div className="font-medium text-sm">{t("controls.boost")}</div>
+          <Label>
+            {boostRunning
+              ? t("controls.boostActiveShort")
+              : t("controls.boostHint", { value: unit.celsius(l, boostTarget, 0) })}
+          </Label>
+        </div>
+        <Button
+          disabled={!s || boostRunning || actions.startBoost.isPending}
+          onClick={() => actions.startBoost.mutate({ target: boostTarget, minutes: 120 })}
+        >
+          {t("controls.boostStart")}
+        </Button>
+      </div>
+      <FormError message={errorText(error)} />
+    </Card>
   );
 }

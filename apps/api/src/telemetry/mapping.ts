@@ -38,6 +38,7 @@ export interface TelemetryRow {
   cycleDataTs: Date | null;
   mainSystemStatus: string | null;
   heatingCircuitStatus: string | null;
+  dhwStatus: string | null;
   operatingMode: string | null;
   dhwOperatingMode: string | null;
   flowTemp: number | null;
@@ -193,6 +194,7 @@ export function statusToTelemetry(status: DeviceStatus, opts: MapOptions): Telem
     cycleDataTs: cycleTs,
     mainSystemStatus,
     heatingCircuitStatus,
+    dhwStatus: r.str(roles.dhw, "switch", "switch"),
     operatingMode: r.str(roles.heating, "airConditionerMode", "airConditionerMode"),
     dhwOperatingMode: r.str(roles.dhw, "airConditionerMode", "airConditionerMode"),
     flowTemp,

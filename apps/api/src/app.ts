@@ -6,6 +6,8 @@ import { secureHeaders } from "hono/secure-headers";
 import { authRoutes } from "./auth/routes.js";
 import { type AuthVars, jsonOnly, loadUser, requireOwner, requireUser } from "./auth/session.js";
 import type { AuthStore } from "./auth/store.js";
+import type { Controls } from "./controls/controller.js";
+import { controlRoutes } from "./controls/routes.js";
 import type { Env } from "./env.js";
 import { authorizeUrl, exchangeCode, type TokenSet } from "./smartthings/oauth.js";
 import { monthKey, type TelemetryStore } from "./telemetry/store.js";
@@ -28,6 +30,8 @@ export interface AppDeps {
   >;
   /** Polling state of the linked SmartThings account, or null when none is linked. */
   accountStatus?: () => Promise<{ pollingStatus: string; lastSuccessfulPoll: Date | null } | null>;
+  /** Heat pump controls; omitted when SmartThings is not configured. */
+  controls?: Controls;
   now?: () => Date;
   fetchImpl?: typeof fetch;
 }
@@ -129,6 +133,7 @@ export function createApp(deps: AppDeps) {
     app.use("/smartthings/status", requireUser);
     app.use("/devices", requireUser);
     app.use("/devices/*", requireUser);
+    if (deps.controls) app.route("/", controlRoutes(deps.controls));
     app.get("/smartthings/status", async (c) => {
       const status = await deps.accountStatus?.();
       return c.json({
