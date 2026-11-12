@@ -4,8 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { createRootRouteWithContext, createRoute, Link, Outlet } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { api } from "./api.js";
+import { useAuth } from "./auth.js";
+import { AccountSettings } from "./components/Account.js";
 import { AppearanceSettings, QuickControls } from "./components/Appearance.js";
 import { Overview } from "./components/Overview.js";
+import { SignIn } from "./components/SignIn.js";
 import { useT, useTheme } from "./theme/ThemeProvider.js";
 
 const NAV = [
@@ -65,7 +68,28 @@ function ApiStatus() {
   );
 }
 
+/** Everything behind the shell needs a signed-in user; first start asks for the owner. */
 function Root() {
+  const { t } = useT();
+  const auth = useAuth();
+  if (auth.isPending) {
+    return <div className="min-h-dvh bg-bg" aria-busy="true" />;
+  }
+  if (auth.isError) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-bg p-4 text-text">
+        <p role="alert" className="text-warn">
+          {t("status.api.offline")}
+        </p>
+      </div>
+    );
+  }
+  if (auth.data.setupRequired) return <SignIn setup />;
+  if (!auth.data.user) return <SignIn setup={false} />;
+  return <AppShell />;
+}
+
+function AppShell() {
   const { t } = useT();
   const { theme, scheme } = useTheme();
   const Shell = theme.Shell ?? DefaultShell;
@@ -99,8 +123,20 @@ const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", com
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings",
-  component: AppearanceSettings,
+  component: SettingsPage,
 });
+function SettingsPage() {
+  const { t } = useT();
+  return (
+    <div className="flex flex-col gap-5">
+      <h1 className="m-0 font-[family-name:var(--font-display)] font-semibold text-2xl">
+        {t("settings.title")}
+      </h1>
+      <AccountSettings />
+      <AppearanceSettings />
+    </div>
+  );
+}
 const pages = NAV.slice(1, 4).map((n) =>
   createRoute({
     getParentRoute: () => rootRoute,

@@ -3,6 +3,9 @@ import { Hono } from "hono";
 import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
+import { authRoutes } from "./auth/routes.js";
+import { type AuthVars, jsonOnly, loadUser, requireOwner, requireUser } from "./auth/session.js";
+import type { AuthStore } from "./auth/store.js";
 import type { Env } from "./env.js";
 import { authorizeUrl, exchangeCode, type TokenSet } from "./smartthings/oauth.js";
 import { monthKey, type TelemetryStore } from "./telemetry/store.js";
@@ -16,6 +19,8 @@ export interface AppDeps {
   onDeviceEvents: (events: unknown[]) => Promise<void>;
   /** Reachability check for /readyz (e.g. SELECT 1). */
   ping: () => Promise<void>;
+  /** App accounts and sessions. */
+  auth: AuthStore;
   /** Read access to stored telemetry for the dashboard. */
   store?: Pick<
     TelemetryStore,
@@ -31,7 +36,14 @@ const STATE_COOKIE = "st_oauth_state";
 
 export function createApp(deps: AppDeps) {
   const { env } = deps;
-  const app = new Hono();
+  const app = new Hono<AuthVars>();
+  const now = deps.now ?? (() => new Date());
+  // The API sits behind the web proxy under a path prefix (e.g. /api), so cookies
+  // scoped to an API route have to include it.
+  const apiBase = new URL(env.API_PUBLIC_URL).pathname.replace(/\/$/, "");
+  const stateCookiePath = `${apiBase}/auth/smartthings`;
+  const secure = new URL(env.WEB_PUBLIC_URL).protocol === "https:";
+  const session = { store: deps.auth, secure, now };
 
   app.use("*", secureHeaders());
   app.use(
@@ -44,6 +56,9 @@ export function createApp(deps: AppDeps) {
     }),
   );
 
+  app.use("*", jsonOnly);
+  app.use("*", loadUser(session));
+
   app.get("/healthz", (c) => c.json({ ok: true }));
   app.get("/readyz", async (c) => {
     try {
@@ -54,30 +69,33 @@ export function createApp(deps: AppDeps) {
     }
   });
 
-  // ── SmartThings OAuth ───────────────────────────────────────────
-  app.get("/auth/smartthings", async (c) => {
+  // ── App login ──────────────────────────────────────────────────
+  app.route("/", authRoutes(session));
+
+  // ── SmartThings OAuth (owner only) ──────────────────────────────
+  app.get("/auth/smartthings", requireOwner, async (c) => {
     const state = randomBytes(16).toString("hex");
     await setSignedCookie(c, STATE_COOKIE, state, env.SESSION_SECRET, {
       httpOnly: true,
-      secure: env.NODE_ENV === "production",
+      secure,
       sameSite: "Lax",
       maxAge: 600,
-      path: "/auth/smartthings",
+      path: stateCookiePath,
     });
     return c.redirect(authorizeUrl(env, state));
   });
 
-  app.get("/auth/smartthings/callback", async (c) => {
+  app.get("/auth/smartthings/callback", requireOwner, async (c) => {
     const expected = await getSignedCookie(c, env.SESSION_SECRET, STATE_COOKIE);
-    deleteCookie(c, STATE_COOKIE, { path: "/auth/smartthings" });
+    deleteCookie(c, STATE_COOKIE, { path: stateCookiePath });
     const { code, state, error } = c.req.query();
-    if (error) return c.redirect(`${env.WEB_PUBLIC_URL}/profile?smartthings=denied`);
+    if (error) return c.redirect(`${env.WEB_PUBLIC_URL}/settings?smartthings=denied`);
     if (!code || !state || !expected || state !== expected) {
       return c.json({ error: "invalid_state" }, 400);
     }
     const tokens = await exchangeCode(env, code, deps.fetchImpl);
     await deps.saveTokens(tokens);
-    return c.redirect(`${env.WEB_PUBLIC_URL}/profile?smartthings=linked`);
+    return c.redirect(`${env.WEB_PUBLIC_URL}/settings?smartthings=linked`);
   });
 
   // ── SmartThings webhook (lifecycle events) ─────────────────────
@@ -106,10 +124,11 @@ export function createApp(deps: AppDeps) {
   });
 
   // ── Telemetry (read) ───────────────────────────────────────────
-  // NOTE: not yet behind app login; that arrives with the login change.
-  const now = deps.now ?? (() => new Date());
   const store = deps.store;
   if (store) {
+    app.use("/smartthings/status", requireUser);
+    app.use("/devices", requireUser);
+    app.use("/devices/*", requireUser);
     app.get("/smartthings/status", async (c) => {
       const status = await deps.accountStatus?.();
       return c.json({

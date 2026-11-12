@@ -20,3 +20,10 @@ export function time(locale: Locale, d: Date): string {
     minute: "2-digit",
   }).format(d);
 }
+
+export function dateTime(locale: Locale, d: Date): string {
+  return new Intl.DateTimeFormat(locale === "de" ? "de-DE" : "en-GB", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(d);
+}

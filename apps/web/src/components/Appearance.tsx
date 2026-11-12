@@ -72,9 +72,6 @@ export function AppearanceSettings() {
   const l = currentLocale();
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="m-0 font-[family-name:var(--font-display)] font-semibold text-2xl">
-        {t("settings.title")}
-      </h1>
       <Card label={t("settings.appearance")}>
         <h2 className="m-0 mb-3 font-semibold text-base">{t("settings.theme")}</h2>
         <div className="grid gap-3 md:grid-cols-3">

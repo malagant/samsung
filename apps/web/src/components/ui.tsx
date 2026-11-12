@@ -64,3 +64,86 @@ export function Switch({
     </button>
   );
 }
+
+export function Button({
+  children,
+  variant = "primary",
+  type = "button",
+  disabled,
+  onClick,
+  className = "",
+}: {
+  children: ReactNode;
+  variant?: "primary" | "quiet" | "danger";
+  type?: "button" | "submit";
+  disabled?: boolean;
+  onClick?: () => void;
+  className?: string;
+}) {
+  const look =
+    variant === "primary"
+      ? "bg-accent text-on-accent"
+      : variant === "danger"
+        ? "border border-border bg-surface text-warn"
+        : "border border-border bg-surface text-text";
+  return (
+    <button
+      type={type}
+      disabled={disabled}
+      onClick={onClick}
+      className={`min-h-11 rounded-[var(--control-radius)] px-4 font-medium text-sm disabled:opacity-60 ${look} ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function Field({
+  label,
+  name,
+  type = "text",
+  autoComplete,
+  required = true,
+  minLength,
+  hint,
+}: {
+  label: string;
+  name: string;
+  type?: "text" | "email" | "password";
+  autoComplete?: string;
+  required?: boolean;
+  minLength?: number;
+  hint?: string;
+}) {
+  const id = `f-${name}`;
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="font-medium text-sm">
+        {label}
+      </label>
+      <input
+        id={id}
+        name={name}
+        type={type}
+        autoComplete={autoComplete}
+        required={required}
+        minLength={minLength}
+        aria-describedby={hint ? `${id}-hint` : undefined}
+        className="min-h-11 rounded-[var(--control-radius)] border border-border bg-bg px-3 text-base text-text"
+      />
+      {hint ? (
+        <span id={`${id}-hint`} className="text-muted text-xs">
+          {hint}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
+export function FormError({ message }: { message: string | null }) {
+  return message ? (
+    <p role="alert" className="m-0 text-sm text-warn">
+      {message}
+    </p>
+  ) : null;
+}
