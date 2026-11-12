@@ -76,7 +76,11 @@ The SmartThings redirect URI is `https://<host>/api/auth/smartthings/callback`.
 
 ### Cyso Cloud (internal only)
 
-`deploy/k8s/overlays/cyso` drops the Ingress, so nothing is exposed publicly. The age key
+`deploy/k8s/overlays/cyso` drops the public Ingress, so nothing is exposed publicly. Inside the
+tailnet the app is served by the Tailscale operator (`deploy/infrastructure/tailscale`) at
+`https://heatpump.ostrich-morpho.ts.net`. The operator needs an OAuth client (scopes Devices Core
+and Auth Keys write, tag `tag:k8s-operator`; policy `tagOwners` for `tag:k8s-operator` and `tag:k8s`),
+stored SOPS-encrypted in `deploy/infrastructure/tailscale/operator-oauth.sops.yaml`. The age key
 for its secrets lives at `~/.config/sops/age/samsung.txt` (not in the repo).
 
 ```bash
@@ -86,4 +90,4 @@ kubectl -n samsung port-forward svc/web 8080:80   # then open http://localhost:8
 ```
 
 Edit secrets with `SOPS_AGE_KEY_FILE=~/.config/sops/age/samsung.txt sops deploy/k8s/overlays/cyso/secrets.sops.yaml`.
-The SmartThings redirect URI for this setup is `http://localhost:8080/api/auth/smartthings/callback`.
+The SmartThings redirect URI for this setup is `https://heatpump.ostrich-morpho.ts.net/api/auth/smartthings/callback`.

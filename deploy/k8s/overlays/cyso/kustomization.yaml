@@ -1,19 +1,21 @@
-# Cyso Cloud: internal only. No Ingress; open the app with
-#   kubectl -n samsung port-forward svc/web 8080:80
+# Cyso Cloud: internal only. No public Ingress; the app is reachable inside the
+# tailnet at https://heatpump.ostrich-morpho.ts.net (Tailscale operator, deploy/infrastructure/tailscale).
+# Fallback: kubectl -n samsung port-forward svc/web 8080:80
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: samsung
 resources:
   - ../../base
   - secrets.sops.yaml
+  - ingress-tailscale.yaml
 configMapGenerator:
   - name: api-config
     behavior: merge
     literals:
-      - API_PUBLIC_URL=http://localhost:8080/api
-      - WEB_PUBLIC_URL=http://localhost:8080
-      - CORS_ORIGINS=http://localhost:8080
-      - SMARTTHINGS_REDIRECT_URI=http://localhost:8080/api/auth/smartthings/callback
+      - API_PUBLIC_URL=https://heatpump.ostrich-morpho.ts.net/api
+      - WEB_PUBLIC_URL=https://heatpump.ostrich-morpho.ts.net
+      - CORS_ORIGINS=https://heatpump.ostrich-morpho.ts.net
+      - SMARTTHINGS_REDIRECT_URI=https://heatpump.ostrich-morpho.ts.net/api/auth/smartthings/callback
 images:
   - name: ghcr.io/malagant/samsung-api
     newTag: latest

@@ -4,6 +4,9 @@ creation_rules:
   - path_regex: deploy/k8s/overlays/cyso/.*\.sops\.yaml$
     encrypted_regex: ^(data|stringData)$
     age: age1kdhypw9fpxd42cj70q7vkudxtxdadeh5vpcy75q8wgc73k460sqs68hwlm
+  - path_regex: deploy/infrastructure/tailscale/.*\.sops\.yaml$
+    encrypted_regex: ^(data|stringData)$
+    age: age1kdhypw9fpxd42cj70q7vkudxtxdadeh5vpcy75q8wgc73k460sqs68hwlm
   # Replace with your age public key (age-keygen -o samsung.agekey).
   - path_regex: deploy/.*\.sops\.yaml$
     encrypted_regex: ^(data|stringData)$

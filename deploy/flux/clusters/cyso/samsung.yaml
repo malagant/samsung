@@ -14,9 +14,27 @@ spec:
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
+  name: samsung-tailscale
+  namespace: flux-system
+spec:
+  interval: 1h
+  sourceRef: { kind: GitRepository, name: samsung }
+  path: ./deploy/infrastructure/tailscale
+  prune: true
+  wait: true
+  timeout: 5m
+  decryption:
+    provider: sops
+    secretRef: { name: sops-age }
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
   name: samsung
   namespace: flux-system
 spec:
+  dependsOn:
+    - name: samsung-tailscale
   interval: 10m
   sourceRef: { kind: GitRepository, name: samsung }
   path: ./deploy/k8s/overlays/cyso
