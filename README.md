@@ -147,3 +147,7 @@ The SmartThings redirect URI for this setup is
 `https://heatpump.ostrich-morpho.ts.net/api/auth/smartthings/callback`. SmartThings
 webhooks cannot reach a tailnet address, so the app relies on polling there.
 For debugging, `kubectl -n samsung port-forward svc/web 8080:80` still works.
+
+Updates roll out by themselves: after the images for a commit on `main` are built, the
+CI job `deploy-cyso` pins the overlay's image tags to that commit and pushes the change;
+Flux applies it within a few minutes. To roll back, set `newTag` back to an older commit SHA.

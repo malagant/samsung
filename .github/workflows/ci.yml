@@ -80,3 +80,33 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/samsung-${{ matrix.app }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.app }}
           cache-to: type=gha,mode=max,scope=${{ matrix.app }}
+
+  # Pins the Cyso overlay to the images just built, so Flux rolls them out by
+  # itself (no :latest, no manual restart). The commit uses GITHUB_TOKEN and
+  # therefore does not start another workflow run.
+  deploy-cyso:
+    if: github.event_name == 'push'
+    needs: [images]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: deploy-cyso
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - name: Pin image tags to ${{ github.sha }}
+        env:
+          TAG: ${{ github.sha }}
+          FILE: deploy/k8s/overlays/cyso/kustomization.yaml
+        run: |
+          yq -i '(.images[] | select(.name == "ghcr.io/malagant/samsung-api" or .name == "ghcr.io/malagant/samsung-web")).newTag = strenv(TAG)' "$FILE"
+          if git diff --quiet; then echo "already pinned"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Deploy ${TAG::7} to Cyso [skip ci]"
+          # main may have moved while the images were building.
+          for i in 1 2 3; do git pull --rebase origin main && git push origin HEAD:main && exit 0; sleep $((i * 5)); done
+          exit 1
