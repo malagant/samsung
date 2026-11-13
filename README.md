@@ -61,6 +61,25 @@ Read endpoints for the dashboard: `GET /devices`, `/devices/{id}/latest`, `/devi
 
 Migrations in `apps/api/drizzle/` run when the API starts. Database tests run when `TEST_DATABASE_URL` is set: `.envrc` points it at a separate `<db>_test` database, `just db-up` creates that database, and CI starts a Postgres service for them.
 
+## Controls
+
+Every signed-in household member can switch heating and hot water, choose the mode and
+set target temperatures (`/controls`, plus quick switches on the overview). Each command
+reads the device status back right away, so a change costs two SmartThings calls.
+
+- Commands go to the same component the dashboard reads from (`DEFAULT_ROLES` in
+  `apps/api/src/telemetry/mapping.ts`): heating to `INDOOR`/`INDOOR1`, hot water to `main`.
+  This mapping is still unverified on a real unit. Check it once with a `/status` dump
+  from my.smartthings.com/advanced before relying on the switches.
+- Setpoint limits come from the unit's FSV values when SmartThings reports them (1031/1032
+  heating, 1051/1052 hot water). Otherwise the app uses 25–55 °C and 30–65 °C.
+- **Hot water boost** is run by the API: it raises the tank target and switches hot water
+  on. After each poll it checks the tank, and once the target or the time limit (at most
+  2 h) is reached, it restores the previous target and switch. It verifies the restore on
+  the next poll and retries up to three times. Hot water controls are locked while a boost
+  runs. Because the poll interval is paced to the call budget, a boost can end up to one
+  poll interval late.
+
 ## Sign-in
 
 On first start the app asks for the owner's e-mail and password (at least 10 characters).

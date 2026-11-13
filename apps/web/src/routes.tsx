@@ -7,6 +7,7 @@ import { api } from "./api.js";
 import { useAuth } from "./auth.js";
 import { AccountSettings } from "./components/Account.js";
 import { AppearanceSettings, QuickControls } from "./components/Appearance.js";
+import { ControlsPage } from "./components/Controls.js";
 import { Overview } from "./components/Overview.js";
 import { SignIn } from "./components/SignIn.js";
 import { useT, useTheme } from "./theme/ThemeProvider.js";
@@ -137,7 +138,12 @@ function SettingsPage() {
     </div>
   );
 }
-const pages = NAV.slice(1, 4).map((n) =>
+const controlsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/controls",
+  component: ControlsPage,
+});
+const pages = NAV.slice(1, 3).map((n) =>
   createRoute({
     getParentRoute: () => rootRoute,
     path: n.to,
@@ -145,4 +151,9 @@ const pages = NAV.slice(1, 4).map((n) =>
   }),
 );
 
-export const routeTree = rootRoute.addChildren([indexRoute, settingsRoute, ...pages]);
+export const routeTree = rootRoute.addChildren([
+  indexRoute,
+  settingsRoute,
+  controlsRoute,
+  ...pages,
+]);

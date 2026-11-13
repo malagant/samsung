@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
+import { Controls } from "../src/controls/controller.js";
 import { loadEnv } from "../src/env.js";
+import { NotLinkedError } from "../src/telemetry/poller.js";
 import { MemoryAuthStore } from "./memory-auth-store.js";
+import { MemoryBoostStore } from "./memory-boost-store.js";
+import { MemoryStore } from "./memory-store.js";
 
 const env = loadEnv({
   NODE_ENV: "test",
@@ -281,5 +285,52 @@ describe("app login", () => {
     const set = res.headers.get("set-cookie") ?? "";
     expect(set).toContain("Path=/api/auth/smartthings");
     expect(set).toContain("Secure");
+  });
+});
+
+describe("controls API", () => {
+  it("needs a session and maps control errors to HTTP", async () => {
+    const store = new MemoryStore();
+    store.deviceList.push({
+      id: "hp",
+      userId: "owner",
+      label: "Heat pump",
+      binaryId: null,
+      temperatureReference: "water",
+      components: ["main", "INDOOR"],
+    });
+    const controls = new Controls({
+      store,
+      boosts: new MemoryBoostStore(),
+      execute: async () => {
+        throw new NotLinkedError();
+      },
+    });
+    const app = createApp({
+      env,
+      auth: new MemoryAuthStore(),
+      store,
+      controls,
+      ping: async () => {},
+      saveTokens: async () => {},
+      onDeviceEvents: async () => {},
+    });
+    expect((await app.request("/devices/hp/controls")).status).toBe(401);
+    const cookie = await signUpOwner(app);
+    const state = await app.request("/devices/hp/controls", { headers: { cookie } });
+    expect(state.status).toBe(200);
+    expect(await state.json()).toMatchObject({
+      heating: { on: null, range: { min: 25, max: 55 } },
+    });
+
+    const bad = await app.request("/devices/hp/controls/heating", json({ mode: "turbo" }, cookie));
+    expect(bad.status).toBe(400);
+    const range = await app.request("/devices/hp/controls/dhw", json({ setpoint: 90 }, cookie));
+    expect(await range.json()).toEqual({ error: "invalid_setpoint" });
+    const unlinked = await app.request("/devices/hp/controls/heating", json({ on: true }, cookie));
+    expect(unlinked.status).toBe(409);
+    expect(await unlinked.json()).toEqual({ error: "not_linked" });
+    const missing = await app.request("/devices/x/boost", json({ target: 50 }, cookie));
+    expect(missing.status).toBe(404);
   });
 });

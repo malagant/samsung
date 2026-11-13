@@ -4,6 +4,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { DrizzleAuthStore } from "../src/auth/drizzle-auth-store.js";
+import { DrizzleBoostStore } from "../src/controls/boost-store.js";
 import { createDb, type Db } from "../src/db/client.js";
 import { loadEnv } from "../src/env.js";
 import type { DeviceStatus } from "../src/smartthings/types.js";
@@ -133,5 +134,26 @@ describe.skipIf(!url)("DrizzleTelemetryStore (Postgres)", () => {
     expect(await auth.removeFamily(kid.id, kid.id)).toBe(false);
     expect(await auth.removeFamily(owner?.id ?? "", kid.id)).toBe(true);
     expect(await auth.sessionUser("t1", now)).toBeNull();
+  });
+  it("stores device components, DHW status and boosts", async () => {
+    const [d] = await store.allDevices();
+    expect(d?.components.length).toBeGreaterThan(0);
+    const last = await store.lastTelemetry("hp-1");
+    expect(last).toHaveProperty("dhwStatus");
+
+    const boosts = new DrizzleBoostStore(db);
+    const b = await boosts.create({
+      deviceId: "hp-1",
+      startedBy: null,
+      target: 55,
+      startedAt: new Date("2026-11-12T08:00:00Z"),
+      endsAt: new Date("2026-11-12T10:00:00Z"),
+      previousSetpoint: 48,
+      previousOn: false,
+    });
+    expect((await boosts.current("hp-1"))?.id).toBe(b.id);
+    await boosts.update(b.id, { status: "done", reason: "target_reached", finishedAt: new Date() });
+    expect(await boosts.current("hp-1")).toBeNull();
+    expect((await boosts.latest("hp-1"))?.reason).toBe("target_reached");
   });
 });

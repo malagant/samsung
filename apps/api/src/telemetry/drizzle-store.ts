@@ -124,6 +124,7 @@ export class DrizzleTelemetryStore implements TelemetryStore {
         label: devices.label,
         binaryId: devices.binaryId,
         temperatureReference: devices.temperatureReference,
+        components: devices.components,
       })
       .from(devices)
       .where(eq(devices.userId, userId));
@@ -137,6 +138,7 @@ export class DrizzleTelemetryStore implements TelemetryStore {
         label: devices.label,
         binaryId: devices.binaryId,
         temperatureReference: devices.temperatureReference,
+        components: devices.components,
       })
       .from(devices)
       .orderBy(asc(devices.linkedAt));

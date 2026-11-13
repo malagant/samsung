@@ -17,6 +17,8 @@ export interface DeviceRecord {
   label: string;
   binaryId: string | null;
   temperatureReference: string | null;
+  /** SmartThings component ids, used to address commands. */
+  components: string[];
 }
 
 /** Persistence the poller needs. Implemented with Drizzle in drizzle-store.ts. */

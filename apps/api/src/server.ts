@@ -5,6 +5,8 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import pino from "pino";
 import { createApp } from "./app.js";
 import { DrizzleAuthStore } from "./auth/drizzle-auth-store.js";
+import { DrizzleBoostStore } from "./controls/boost-store.js";
+import { Controls } from "./controls/controller.js";
 import { createDb } from "./db/client.js";
 import { loadEnv } from "./env.js";
 import { DrizzleTelemetryStore } from "./telemetry/drizzle-store.js";
@@ -18,12 +20,26 @@ const db = createDb(env.DATABASE_URL);
 await migrate(db, { migrationsFolder: fileURLToPath(new URL("../drizzle", import.meta.url)) });
 
 const store = new DrizzleTelemetryStore(db);
-const poller = new Poller({ env, store, log });
+// Poller and controls need each other: commands go out through the poller's
+// SmartThings client, and every poll lets the controls advance a DHW boost.
+let controls: Controls | null = null;
+const poller = new Poller({
+  env,
+  store,
+  log,
+  onPolled: (deviceId, row) => controls?.onPoll(deviceId, row) ?? Promise.resolve(),
+});
+controls = new Controls({
+  store,
+  boosts: new DrizzleBoostStore(db),
+  execute: (id, commands, opts) => poller.execute(id, commands, opts),
+});
 
 const app = createApp({
   env,
   store,
   auth: new DrizzleAuthStore(db),
+  controls,
   accountStatus: () => store.accountStatus(),
   ping: async () => {
     await db.execute(sql`select 1`);

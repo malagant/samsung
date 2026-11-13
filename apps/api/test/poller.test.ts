@@ -117,3 +117,47 @@ describe("Poller", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 });
+
+describe("Poller.execute", () => {
+  it("sends commands with the owner's token and reads the status back", async () => {
+    const store = new MemoryStore();
+    await linked(store);
+    const bodies: unknown[] = [];
+    const { fetchImpl, seen } = fakeSmartThings({
+      "/devices/hp-1/commands": () =>
+        Response.json({ results: [{ id: "c1", status: "ACCEPTED" }] }),
+    });
+    const wrapped = (async (input: string | URL | Request, init?: RequestInit) => {
+      if (init?.body) bodies.push(JSON.parse(String(init.body)));
+      return fetchImpl(input, init);
+    }) as typeof fetch;
+    const poller = new Poller({ env, store, log, fetchImpl: wrapped, now: () => now });
+    await poller.tick();
+
+    const row = await poller.execute(
+      "hp-1",
+      [{ component: "INDOOR", capability: "switch", command: "off" }],
+      { refresh: true },
+    );
+    expect(bodies.at(-1)).toEqual({
+      commands: [{ component: "INDOOR", capability: "switch", command: "off", arguments: [] }],
+    });
+    expect(seen.at(-1)).toContain("/devices/hp-1/status");
+    expect(row?.ts).toEqual(now);
+    expect(store.rows.get("hp-1")).toHaveLength(2);
+  });
+
+  it("refuses devices without a linked account", async () => {
+    const poller = new Poller({ env, store: new MemoryStore(), log, now: () => now });
+    await expect(poller.execute("hp-1", [], { refresh: false })).rejects.toThrow("no linked");
+  });
+
+  it("hands every polled row to the post-poll hook", async () => {
+    const store = new MemoryStore();
+    await linked(store);
+    const { fetchImpl } = fakeSmartThings();
+    const onPolled = vi.fn(async () => {});
+    await new Poller({ env, store, log, fetchImpl, now: () => now, onPolled }).tick();
+    expect(onPolled).toHaveBeenCalledWith("hp-1", expect.objectContaining({ ts: now }));
+  });
+});
